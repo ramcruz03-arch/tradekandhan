@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E1116">
+<title>Desk — trading discipline</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --ink:#0E1116; --ink-2:#161B22; --ink-3:#1F262F;
+    --line:#28313C; --text:#E6E9EE; --dim:#8994A3; --faint:#5A6674;
+    --pass:#4FB286; --fail:#D9564B; --hold:#E0A458; --key:#C9A227;
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--ink);color:var(--text);
+    font:15px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  main{max-width:560px;margin:0 auto;padding:14px 16px 96px}
+  h1{font-size:15px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--dim);font-weight:600;margin:6px 0 14px}
+  h1 b{color:var(--key)}
+  .card{background:var(--ink-2);border:1px solid var(--line);
+    border-radius:var(--r);padding:16px;margin-bottom:14px}
+  .lab{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  label{display:block}
+  input,textarea,select{width:100%;margin-top:5px;background:var(--ink-3);
+    color:var(--text);border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;font-size:16px;outline:none;
+    font-variant-numeric:tabular-nums}
+  input:focus,textarea:focus,select:focus{border-color:var(--dim)}
+  textarea{resize:none;font-size:15px;font-family:inherit}
+  .seg{display:flex;background:var(--ink-3);border-radius:10px;padding:3px;gap:3px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--dim);
+    padding:9px;border-radius:8px;font:inherit;font-size:14px}
+  .seg button[data-on]{background:var(--text);color:var(--ink);font-weight:600}
+  .seg button[data-on][data-side=SELL]{background:var(--fail);color:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{border:1px solid var(--line);background:transparent;color:var(--dim);
+    border-radius:999px;padding:6px 12px;font-size:12.5px}
+  .chip[data-on]{background:var(--text);color:var(--ink);border-color:var(--text)}
+
+  /* signature: the risk line */
+  .riskline{margin:18px 0 6px}
+  .track{position:relative;height:6px;background:var(--ink-3);border-radius:3px;
+    overflow:hidden}
+  .track i{position:absolute;top:0;bottom:0;display:block}
+  .track .lose{background:var(--fail);opacity:.55}
+  .track .win{background:var(--pass);opacity:.55}
+  .track .mark{width:2px;background:var(--text)}
+  .rl-legend{display:flex;justify-content:space-between;margin-top:7px;
+    font-size:11px;color:var(--faint)}
+  .figure{display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px}
+  .figure .big{font-size:34px;font-weight:600;letter-spacing:-.02em}
+  .fail{color:var(--fail)} .pass{color:var(--pass)} .hold{color:var(--hold)}
+  .dim{color:var(--dim)} .faint{color:var(--faint)}
+
+  .note{display:flex;gap:9px;padding:11px 12px;border-radius:10px;
+    font-size:13.5px;line-height:1.45;margin-top:9px}
+  .note.b{background:rgba(217,86,75,.12);color:#F0A9A2;
+    border:1px solid rgba(217,86,75,.3)}
+  .note.w{background:rgba(224,164,88,.12);color:#EBC48F;
+    border:1px solid rgba(224,164,88,.28)}
+  .note s{text-decoration:none;font-weight:700}
+
+  .gate{margin-top:16px}
+  .go{width:100%;border:0;border-radius:12px;padding:16px;font:inherit;
+    font-size:16px;font-weight:600;background:var(--pass);color:#06231A}
+  .go:active{transform:scale(.99)}
+  .blocked{border:1px dashed var(--line);border-radius:12px;padding:16px;
+    text-align:center;color:var(--faint);font-size:13.5px;line-height:1.5}
+  .ack{display:flex;gap:9px;align-items:flex-start;margin-top:12px;
+    font-size:13.5px;color:var(--dim)}
+  .ack input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--hold);flex:none}
+
+  nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#0E1116f2;
+    backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom);z-index:20}
+  nav button{flex:1;border:0;background:none;color:var(--faint);padding:12px 4px;
+    font:inherit;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  nav button[data-on]{color:var(--key)}
+  .hide{display:none!important}
+  .kv{display:flex;justify-content:space-between;padding:9px 0;
+    border-bottom:1px solid var(--line);font-size:14px}
+  .kv:last-child{border:0}
+  .score{font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1}
+  .meter{height:5px;background:var(--ink-3);border-radius:3px;margin-top:6px;overflow:hidden}
+  .meter i{display:block;height:100%;background:var(--dim)}
+  .trade{border-bottom:1px solid var(--line);padding:12px 0}
+  .trade:last-child{border:0}
+  .lockbar{background:rgba(217,86,75,.14);border:1px solid rgba(217,86,75,.34);
+    color:#F0A9A2;border-radius:12px;padding:14px;margin-bottom:14px;font-size:14px}
+  .foot{color:var(--faint);font-size:11px;line-height:1.6;margin-top:26px}
+  button{cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+  <h1>Desk<b>.</b></h1>
+  <div id="lock"></div>
+
+  <!-- ───────────────── TICKET ───────────────── -->
+  <section id="v-ticket">
+    <div class="card">
+      <div class="row" style="align-items:flex-end">
+        <label><span class="lab">Symbol</span>
+          <input id="sym" placeholder="RELIANCE" autocapitalize="characters"></label>
+        <div style="flex:.9">
+          <span class="lab">Side</span>
+          <div class="seg" id="side">
+            <button data-v="BUY" data-on>Buy</button>
+            <button data-v="SELL">Sell</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <label><span class="lab">Entry</span>
+          <input id="entry" type="number" inputmode="decimal" step="0.05"></label>
+        <label><span class="lab">Stop</span>
+          <input id="stop" type="number" inputmode="decimal" step="0.05"></label>
+        <label><span class="lab">Target</span>
+          <input id="target" type="number" inputmode="decimal" step="0.05"></label>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <label><span class="lab">Segment</span>
+          <select id="seg">
+            <option value="DELIVERY">Delivery</option>
+            <option value="INTRADAY">Intraday</option>
+            <option value="FUT">Futures</option>
+            <option value="OPT">Options</option>
+          </select></label>
+        <label><span class="lab">Quantity</span>
+          <input id="qty" type="number" inputmode="numeric" step="1"></label>
+      </div>
+
+      <!-- the risk line -->
+      <div class="riskline">
+        <div class="track" id="track"></div>
+        <div class="rl-legend">
+          <span id="rl-stop">stop</span><span id="rl-entry">entry</span><span id="rl-tgt">target</span>
+        </div>
+      </div>
+
+      <div class="figure">
+        <div>
+          <div class="lab">Risk if stopped</div>
+          <div class="big num fail" id="risk-amt">₹0</div>
+        </div>
+        <div style="text-align:right">
+          <div class="lab">R:R after costs</div>
+          <div class="big num" id="rr">—</div>
+        </div>
+      </div>
+      <div class="faint" id="cost-note" style="font-size:12px;margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <div class="lab">Why this trade</div>
+      <div class="chips" id="tags"></div>
+      <textarea id="thesis" rows="2" placeholder="One line. What are you seeing?"
+        style="margin-top:10px"></textarea>
+      <div id="echo"></div>
+      <div id="verdict"></div>
+      <div class="gate" id="gate"></div>
+    </div>
+  </section>
+
+  <!-- ───────────────── OPEN ───────────────── -->
+  <section id="v-open" class="hide"></section>
+
+  <!-- ───────────────── PROCESS ───────────────── -->
+  <section id="v-score" class="hide"></section>
+
+  <!-- ───────────────── COACH ───────────────── -->
+  <section id="v-coach" class="hide"></section>
+
+  <!-- ───────────────── SETUP ───────────────── -->
+  <section id="v-setup" class="hide">
+    <div class="card">
+      <div class="lab" style="margin-bottom:10px">Your rules</div>
+      <label><span class="lab">Trading capital (₹)</span>
+        <input id="s-cap" type="number" inputmode="numeric"></label>
+      <div class="row" style="margin-top:12px">
+        <label><span class="lab">Risk per trade %</span>
+          <input id="s-risk" type="number" step="0.1"></label>
+        <label><span class="lab">Daily loss cap %</span>
+          <input id="s-daily" type="number" step="0.1"></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label><span class="lab">Minimum R:R</span>
+          <input id="s-rr" type="number" step="0.1"></label>
+        <label><span class="lab">Max open positions</span>
+          <input id="s-pos" type="number" step="1"></label>
+      </div>
+      <div class="note w" style="margin-top:14px">
+        <s>!</s><span>Loosening a limit takes effect after 24 hours. Tightening
+        applies at once. That asymmetry is the point.</span>
+      </div>
+      <button class="go" id="s-save" style="margin-top:14px;background:var(--ink-3);color:var(--text)">
+        Save rules</button>
+      <div id="s-pending"></div>
+    </div>
+
+    <div class="card">
+      <div class="lab" style="margin-bottom:10px">Coach (optional)</div>
+      <label><span class="lab">Anthropic API key</span>
+        <input id="s-key" type="password" placeholder="sk-ant-..." autocomplete="off"></label>
+      <p class="faint" style="font-size:12px;margin-top:9px">
+        Stored on this device only and sent straight to Anthropic — never to me,
+        never to a server of mine. The Coach reads your closed trades and nothing
+        else: it has no prices, no market data, and cannot suggest a trade.
+        Leave blank and the rest of the app works exactly as before.</p>
+      <button class="chip" id="s-key-save" style="padding:11px;margin-top:10px">Save key</button>
+    </div>
+
+    <div class="card">
+      <div class="lab" style="margin-bottom:10px">Exit reminders</div>
+      <p class="faint" style="font-size:13px">
+        This app cannot place or close orders — it has no broker connection. What
+        it can do is nudge you at the moments exits get forgotten: intraday
+        square-off, and the daily loss cap.</p>
+      <div class="row" style="margin-top:12px">
+        <label><span class="lab">Square-off alert</span>
+          <input id="s-sq" type="time" value="15:12"></label>
+        <label><span class="lab">Notifications</span>
+          <button class="chip" id="s-notify" style="padding:11px;width:100%;margin-top:5px">Enable</button></label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="lab" style="margin-bottom:8px">Data</div>
+      <div class="faint" style="font-size:13px">Everything stays on this device.
+        Nothing is uploaded, and there is no account.</div>
+      <div class="row" style="margin-top:12px">
+        <button class="chip" id="export" style="padding:11px">Export JSON</button>
+        <button class="chip" id="wipe" style="padding:11px">Erase all data</button>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">
+    Informational tool for your own record-keeping. Not investment advice, not a
+    recommendation to buy or sell, and not connected to any broker — orders are
+    logged here, placed by you elsewhere. Charge rates are defaults and change;
+    check them against a contract note before trusting any figure.
+  </p>
+</main>
+
+<nav>
+  <button data-v="ticket" data-on>Ticket</button>
+  <button data-v="open">Open</button>
+  <button data-v="score">Process</button>
+  <button data-v="coach">Coach</button>
+  <button data-v="setup">Rules</button>
+</nav>
+
+<script>
+/* ─────────────────────── storage ─────────────────────── */
+const mem = {};
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : (k in mem ? mem[k] : d); }
+             catch(e){ return k in mem ? mem[k] : d; } },
+  set(k, v){ mem[k] = v; try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+const DEF_RULES = { capital:500000, riskPct:1, dailyPct:3, minRR:2, maxPos:5 };
+let rules   = Object.assign({}, DEF_RULES, store.get('rules', {}));
+let trades  = store.get('trades', []);   // closed
+let open    = store.get('open', []);     // live
+let tilt    = store.get('tilt', {until:0, trips:0, why:''});
+let pending = store.get('pending', null);// scheduled loosening
+const save  = () => { store.set('rules',rules); store.set('trades',trades);
+                      store.set('open',open); store.set('tilt',tilt);
+                      store.set('pending',pending); };
+
+const TAGS = ['Breakout','Pullback','Mean reversion','News','Range','Swing'];
+const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const today = () => new Date().toISOString().slice(0,10);
+
+/* ─────────────────── Indian charges ─────────────────── */
+const R = {
+  DELIVERY:{stt:.001,sttBoth:true,exch:.0000297,stampBuy:.00015,brk:()=>0,dp:15.93},
+  INTRADAY:{stt:.00025,sttBoth:false,exch:.0000297,stampBuy:.00003,
+            brk:t=>Math.min(t*.0003,20),dp:0},
+  FUT:{stt:.0002,sttBoth:false,exch:.0000173,stampBuy:.00002,brk:()=>20,dp:0},
+  OPT:{stt:.001,sttBoth:false,exch:.0003503,stampBuy:.00003,brk:()=>20,dp:0}
+};
+function leg(segment, side, price, qty){
+  const r = R[segment], t = price*qty;
+  const brokerage = r.brk(t);
+  const stt = (r.sttBoth || side==='SELL') ? t*r.stt : 0;
+  const exch = t*r.exch;
+  const sebi = t*.000002;
+  const stamp = side==='BUY' ? t*r.stampBuy : 0;
+  const gst = (brokerage+exch+sebi)*.18;
+  const dp = (side==='SELL') ? r.dp : 0;
+  return brokerage+stt+exch+sebi+stamp+gst+dp;
+}
+function roundTrip(segment, entry, exit, qty, long){
+  const b = long?entry:exit, s = long?exit:entry;
+  const charges = leg(segment,'BUY',b,qty) + leg(segment,'SELL',s,qty);
+  let gross = (exit-entry)*qty; if(!long) gross = -gross;
+  return {charges, gross, net:gross-charges,
+          bePct: entry*qty ? charges/(entry*qty)*100 : 0};
+}
+
+/* ─────────────────── ticket state ─────────────────── */
+const T = { side:'BUY', tag:'', };
+const $ = id => document.getElementById(id);
+const F = () => ({
+  sym:$('sym').value.trim().toUpperCase(), side:T.side,
+  entry:+$('entry').value, stop:+$('stop').value, target:+$('target').value,
+  qty:+$('qty').value|0, seg:$('seg').value, tag:T.tag,
+  thesis:$('thesis').value.trim()
+});
+
+function suggestQty(){
+  const f = F(); if(!f.entry || !f.stop || f.entry===f.stop) return;
+  const per = Math.abs(f.entry-f.stop);
+  $('qty').value = Math.max(0, Math.floor(rules.capital*rules.riskPct/100/per));
+  render();
+}
+
+/* ─────────────────── the gate ─────────────────── */
+function pnlToday(){
+  const d = today();
+  return trades.filter(t=>t.closed.slice(0,10)===d).reduce((a,t)=>a+t.net,0);
+}
+function tiltCheck(now, proposedRisk){
+  if(tilt.until > now)
+    return [{s:'B',c:'COOLOFF',m:`Cooling off for ${Math.ceil((tilt.until-now)/60000)} more minute(s). Triggered by ${tilt.why}.`}];
+  const recent = trades.filter(t=>now - new Date(t.closed).getTime() < 6*3600e3)
+                       .sort((a,b)=>new Date(b.closed)-new Date(a.closed));
+  let why = '';
+  let streak = 0;
+  for(const t of recent){ if(t.net < 0) streak++; else break; }
+  if(streak >= 2) why = `${streak} losing trades in a row`;
+  if(!why && recent.length >= 3){
+    const span = new Date(recent[0].closed) - new Date(recent[2].closed);
+    if(span <= 10*60000) why = `3 trades inside ${Math.round(span/60000)} minutes`;
+  }
+  if(!why && recent[0] && recent[0].net < 0 && proposedRisk > Math.abs(recent[0].net)*1.5)
+    why = `size up ${(proposedRisk/Math.abs(recent[0].net)).toFixed(1)}x right after a loss`;
+  if(!why) return [];
+  tilt = {until: now + 15*60000, trips: tilt.trips+1, why}; save();
+  return [{s:'B',c:'TILT',m:`Pausing 15 minutes — ${why}. The setup will still be there.`}];
+}
+function setupStats(tag){
+  const s = trades.filter(t=>t.tag===tag);
+  if(s.length < 30) return null;
+  const net = s.reduce((a,t)=>a+t.net,0);
+  const w = s.filter(t=>t.net>0).length;
+  return {tag, n:s.length, net, wr:w/s.length*100};
+}
+function gate(){
+  const f = F(), out = [];
+  if(!f.sym) out.push({s:'B',c:'SYM',m:'Enter a symbol.'});
+  if(!f.entry || !f.stop) out.push({s:'B',c:'PX',m:'Entry and stop are required.'});
+  if(f.entry && f.stop){
+    const long = f.side==='BUY';
+    if(long && f.stop >= f.entry) out.push({s:'B',c:'SIDE',m:'Stop must sit below entry on a long.'});
+    if(!long && f.stop <= f.entry) out.push({s:'B',c:'SIDE',m:'Stop must sit above entry on a short.'});
+  }
+  const risk = Math.abs(f.entry-f.stop)*f.qty;
+  const budget = rules.capital*rules.riskPct/100;
+
+  const lim = -rules.capital*rules.dailyPct/100;
+  if(pnlToday() <= lim)
+    out.push({s:'B',c:'DAY',m:`Daily loss cap hit (${inr(pnlToday())}). Locked until tomorrow.`});
+
+  if(f.qty > 0 && risk > budget*1.02){
+    const sug = Math.floor(budget/Math.abs(f.entry-f.stop));
+    out.push({s:'B',c:'SIZE',m:`Risks ${inr(risk)} against a ${inr(budget)} budget. Cut to ${sug} qty.`});
+  }
+  if(!f.qty) out.push({s:'B',c:'QTY',m:'Set a quantity.'});
+
+  if(f.target && f.entry && f.stop && f.qty){
+    const rr = netRR(f);
+    if(rr < rules.minRR)
+      out.push({s:'B',c:'RR',m:`R:R after costs is 1:${rr.toFixed(2)}; your floor is 1:${rules.minRR}.`});
+  } else if(!f.target){
+    out.push({s:'W',c:'TGT',m:'No target — expectancy cannot be measured.'});
+  }
+
+  if(open.length >= rules.maxPos)
+    out.push({s:'B',c:'POS',m:`${open.length} positions already open (max ${rules.maxPos}).`});
+  if(open.some(o=>o.sym===f.sym))
+    out.push({s:'W',c:'DUP',m:`You already hold ${f.sym}. This adds to one bet, not two.`});
+
+  if(!f.tag) out.push({s:'B',c:'TAG',m:'Tag the setup.'});
+  if(f.thesis.length < 15) out.push({s:'B',c:'WHY',m:'Write one line on why you are taking this.'});
+
+  const st = f.tag && setupStats(f.tag);
+  if(st && st.net < 0)
+    out.push({s:'W',c:'EXP',m:`Your last ${st.n} ${f.tag.toLowerCase()} trades netted ${inr(st.net)} at a ${st.wr.toFixed(0)}% win rate.`});
+
+  if(f.qty && f.entry && f.stop) out.push(...tiltCheck(Date.now(), risk));
+  return out;
+}
+function netRR(f){
+  const long = f.side==='BUY';
+  const l = roundTrip(f.seg,f.entry,f.stop,f.qty,long);
+  const w = roundTrip(f.seg,f.entry,f.target,f.qty,long);
+  return Math.abs(l.net) ? w.net/Math.abs(l.net) : 0;
+}
+
+/* ─────────────────── render ─────────────────── */
+let ack = false;
+function render(){
+  const f = F();
+  const risk = Math.abs(f.entry-f.stop)*f.qty || 0;
+  $('risk-amt').textContent = inr(risk);
+
+  if(f.target && f.entry && f.stop && f.qty){
+    const rr = netRR(f), rt = roundTrip(f.seg,f.entry,f.target,f.qty,f.side==='BUY');
+    $('rr').textContent = '1:'+rr.toFixed(2);
+    $('rr').className = 'big num ' + (rr>=rules.minRR?'pass':'fail');
+    $('cost-note').textContent =
+      `Charges ${inr(rt.charges)} · price must move ${rt.bePct.toFixed(2)}% just to break even.`;
+  } else { $('rr').textContent='—'; $('rr').className='big num dim'; $('cost-note').textContent=''; }
+
+  drawLine(f);
+
+  const v = gate();
+  const blocked = v.some(r=>r.s==='B'), warned = v.some(r=>r.s==='W');
+  $('verdict').innerHTML = v.map(r=>
+    `<div class="note ${r.s==='B'?'b':'w'}"><s>${r.s==='B'?'×':'!'}</s><span>${r.m}</span></div>`).join('');
+
+  if(blocked){
+    $('gate').innerHTML = `<div class="blocked">This order breaks rules you set.<br>Fix the reasons above.</div>`;
+  } else if(warned && !ack){
+    $('gate').innerHTML =
+      `<label class="ack"><input type="checkbox" id="ackbox">
+        <span>I have read the warnings and I am taking this trade anyway.</span></label>
+       <div class="blocked" style="margin-top:12px">Acknowledge to continue.</div>`;
+    $('ackbox').onchange = e => { ack = e.target.checked; render(); };
+  } else {
+    $('gate').innerHTML = `<button class="go" id="place">Log ${f.side} · ${f.qty} ${f.sym}</button>`
+      + (apiKey() ? `<button class="chip" id="echoBtn"
+           style="width:100%;padding:11px;margin-top:10px">Check this against my record</button>` : '');
+    $('place').onclick = place;
+    if($('echoBtn')) $('echoBtn').onclick = echoThesis;
+  }
+  renderLock();
+}
+function drawLine(f){
+  const t = $('track');
+  if(!f.entry || !f.stop){ t.innerHTML=''; $('rl-stop').textContent='stop';
+    $('rl-entry').textContent='entry'; $('rl-tgt').textContent='target'; return; }
+  const long = f.side==='BUY';
+  const tgt = f.target || (long ? f.entry + (f.entry-f.stop)*2 : f.entry - (f.stop-f.entry)*2);
+  const lo = Math.min(f.stop,f.entry,tgt), hi = Math.max(f.stop,f.entry,tgt);
+  const p = x => ((x-lo)/(hi-lo||1))*100;
+  const a = Math.min(p(f.stop),p(f.entry)), b = Math.max(p(f.stop),p(f.entry));
+  const c = Math.min(p(f.entry),p(tgt)),   d = Math.max(p(f.entry),p(tgt));
+  t.innerHTML =
+    `<i class="lose" style="left:${a}%;width:${b-a}%"></i>`+
+    `<i class="win"  style="left:${c}%;width:${d-c}%"></i>`+
+    `<i class="mark" style="left:${p(f.entry)}%"></i>`;
+  $('rl-stop').textContent  = 'stop ' + (long?f.stop:tgt);
+  $('rl-entry').textContent = 'entry ' + f.entry;
+  $('rl-tgt').textContent   = 'target ' + (long?tgt:f.stop);
+}
+function renderLock(){
+  const now = Date.now();
+  const lim = -rules.capital*rules.dailyPct/100;
+  let html = '';
+  if(tilt.until > now)
+    html = `<div class="lockbar"><b>Paused.</b> ${Math.ceil((tilt.until-now)/60000)} minutes left —
+      ${tilt.why}. Trip ${tilt.trips} today.</div>`;
+  else if(pnlToday() <= lim)
+    html = `<div class="lockbar"><b>Done for the day.</b> ${inr(pnlToday())} against a
+      ${inr(lim)} cap. The ticket reopens tomorrow.</div>`;
+  $('lock').innerHTML = html;
+}
+
+/* ─────────────────── actions ─────────────────── */
+function place(){
+  const f = F();
+  open.push({id:Date.now(), sym:f.sym, side:f.side, seg:f.seg, qty:f.qty,
+             entry:f.entry, stop:f.stop, target:f.target, tag:f.tag,
+             thesis:f.thesis, opened:new Date().toISOString()});
+  save();
+  ['sym','entry','stop','target','qty','thesis'].forEach(i=>$(i).value='');
+  T.tag=''; ack=false; renderTags(); render(); go('open');
+}
+function closeTrade(id, how){
+  const o = open.find(x=>x.id===id); if(!o) return;
+  let px = how==='STOP' ? o.stop : how==='TARGET' ? o.target : null;
+  if(px===null || !px){
+    const v = prompt(`Exit price for ${o.sym}?`); if(!v) return; px = +v;
+  }
+  const rt = roundTrip(o.seg, o.entry, px, o.qty, o.side==='BUY');
+  trades.push(Object.assign({}, o, {exit:px, how, net:rt.net, gross:rt.gross,
+    charges:rt.charges, closed:new Date().toISOString(),
+    atPlan: how==='STOP'||how==='TARGET'}));
+  open = open.filter(x=>x.id!==id); save(); renderOpen(); renderScore(); render();
+}
+function adherence(){
+  const s = trades.slice(-100);
+  if(!s.length) return null;
+  const pct = fn => s.filter(fn).length/s.length*100;
+  const tagged = pct(t=>t.tag && t.thesis && t.thesis.length>=15);
+  const sized  = pct(t=>Math.abs(t.entry-t.stop)*t.qty <= rules.capital*rules.riskPct/100*1.02);
+  const plan   = pct(t=>t.atPlan);
+  const score  = tagged*.3 + sized*.35 + plan*.35;
+  const grade  = score>=90?'Disciplined':score>=75?'Solid':score>=55?'Slipping':'Off-process';
+  return {n:s.length, tagged, sized, plan, score, grade};
+}
+
+window.closeTrade = closeTrade;
+
+/* ─────────────────── views ─────────────────── */
+function renderOpen(){
+  const v = $('v-open');
+  if(!open.length){ v.innerHTML =
+    `<div class="card"><div class="lab">Open positions</div>
+     <p class="faint" style="font-size:14px;margin:12px 0 0">
+     Nothing open. That is a position too.</p></div>`; return; }
+  v.innerHTML = `<div class="card"><div class="lab">Open · ${open.length}</div>` +
+    open.map(o=>`<div class="trade">
+      <div style="display:flex;justify-content:space-between">
+        <b>${o.sym}</b><span class="num dim">${o.qty} @ ${o.entry}</span></div>
+      <div class="faint" style="font-size:12.5px;margin-top:3px">${o.tag} · ${o.thesis}</div>
+      <div class="chips" style="margin-top:10px">
+        <button class="chip" onclick="closeTrade(${o.id},'STOP')">Stopped ${o.stop}</button>
+        <button class="chip" onclick="closeTrade(${o.id},'TARGET')">Target ${o.target||'—'}</button>
+        <button class="chip" onclick="closeTrade(${o.id},'MANUAL')">Closed by hand</button>
+      </div></div>`).join('') + `</div>`;
+}
+function renderScore(){
+  const a = adherence(), v = $('v-score');
+  if(!a){ v.innerHTML = `<div class="card"><div class="lab">Process</div>
+    <p class="faint" style="font-size:14px;margin:12px 0 0">
+    Close a few trades and this becomes the most useful screen here.</p></div>`; return; }
+  const tone = a.score>=90?'pass':a.score>=75?'dim':a.score>=55?'hold':'fail';
+  const tags = [...new Set(trades.map(t=>t.tag))].map(setupStats)
+                 .filter(Boolean).filter(s=>s.net<0);
+  const pnl = trades.reduce((x,t)=>x+t.net,0);
+  v.innerHTML = `
+    <div class="card">
+      <div class="lab">Rule adherence · last ${a.n} trades</div>
+      <div style="display:flex;align-items:baseline;gap:14px;margin-top:6px">
+        <span class="score num ${tone}">${a.score.toFixed(0)}</span>
+        <span class="${tone}" style="font-size:17px">${a.grade}</span>
+      </div>
+      ${[['Tagged with a thesis',a.tagged],['Sized within budget',a.sized],
+         ['Exited at plan, not by hand',a.plan]].map(([l,p])=>`
+        <div style="margin-top:14px">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px" class="dim">
+            <span>${l}</span><span class="num">${p.toFixed(0)}%</span></div>
+          <div class="meter"><i style="width:${Math.min(p,100)}%"></i></div></div>`).join('')}
+      <p class="faint" style="font-size:12px;margin-top:16px">
+        Scored on rule-following, not profit. A disciplined loss scores full marks;
+        an undisciplined win does not.</p>
+    </div>
+    <div class="card">
+      <div class="kv"><span class="dim">Net P&L · all time</span>
+        <b class="num ${pnl>=0?'pass':'fail'}">${inr(pnl)}</b></div>
+      <div class="kv"><span class="dim">Today</span>
+        <span class="num">${inr(pnlToday())}</span></div>
+      <div class="kv"><span class="dim">Closed trades</span>
+        <span class="num">${trades.length}</span></div>
+      <div class="kv"><span class="dim">Tilt pauses today</span>
+        <span class="num">${tilt.trips}</span></div>
+    </div>
+    ${tags.length?`<div class="card"><div class="lab">Setups costing you money</div>
+      ${tags.map(s=>`<div class="kv"><span>${s.tag}</span>
+        <span class="num fail">${inr(s.net)}</span></div>`).join('')}
+      <p class="faint" style="font-size:12px;margin-top:10px">
+      These raise a warning on the ticket now.</p></div>`:''}`;
+}
+function renderSetup(){
+  $('s-cap').value=rules.capital; $('s-risk').value=rules.riskPct;
+  $('s-daily').value=rules.dailyPct; $('s-rr').value=rules.minRR;
+  $('s-pos').value=rules.maxPos;
+  $('s-pending').innerHTML = pending ?
+    `<div class="note w"><s>!</s><span>Loosening ${pending.field} to ${pending.value}
+      takes effect ${new Date(pending.at).toLocaleString('en-IN')}.</span></div>` : '';
+}
+function saveRules(){
+  const next = {capital:+$('s-cap').value, riskPct:+$('s-risk').value,
+    dailyPct:+$('s-daily').value, minRR:+$('s-rr').value, maxPos:+$('s-pos').value|0};
+  // Tightening applies now. Loosening waits 24 hours.
+  const looser = (k,a,b) => k==='minRR' ? b<a : b>a;
+  let delayed = null;
+  for(const k of ['riskPct','dailyPct','minRR','maxPos']){
+    if(next[k]!==rules[k] && looser(k,rules[k],next[k])){
+      delayed = {field:k, value:next[k], at:Date.now()+24*3600e3};
+      next[k] = rules[k];
+    }
+  }
+  rules = next; pending = delayed || pending; save(); renderSetup(); render();
+}
+function applyPending(){
+  if(pending && Date.now() >= pending.at){ rules[pending.field]=pending.value;
+    pending=null; save(); }
+}
+
+
+/* ─────────────────── coach (bring your own key) ───────────────────
+   Boundary is structural, not a polite instruction: the model is only ever
+   handed closed trades with prices stripped. It has no live data, no open
+   position, and no way to produce a signal. It reads your record back to you. */
+const MODEL = 'claude-sonnet-4-6';
+const GUARD = `You are analysing one trader's own closed-trade journal.
+
+Hard limits:
+- Never suggest entering, exiting or avoiding any security.
+- Never predict price direction or judge whether a market view was correct.
+- You have no price data and no market context. Do not act as if you do.
+
+What you DO: find patterns in this person's own behaviour and outcomes, stated
+as observations backed by the numbers given. Behaviour, timing, sizing, wording
+and follow-through are in scope. Market opinion is not.
+
+Be concrete. Cite counts and rupee figures. If the sample is too small to
+support a claim, say so rather than hedging. Do not flatter. Do not open with
+praise. If nothing meaningful stands out, say that plainly.`;
+
+const apiKey = () => store.get('key','');
+function slim(t){                       // behavioural fields only, no prices
+  return {closed:(t.closed||'').slice(0,16),
+          weekday:new Date(t.closed).toLocaleDateString('en-IN',{weekday:'long'}),
+          tag:t.tag, why:(t.thesis||'').slice(0,200),
+          net:Math.round(t.net), exit:t.how, at_plan:!!t.atPlan};
+}
+function aggregates(){
+  const g=(key)=>{const o={}; trades.forEach(t=>{const k=key(t)||'—';
+    (o[k]=o[k]||[]).push(t.net);}); const r={};
+    for(const k in o) r[k]={n:o[k].length, net:Math.round(o[k].reduce((a,b)=>a+b,0)),
+      win_rate:Math.round(o[k].filter(x=>x>0).length/o[k].length*100)};
+    return r;};
+  const manual=trades.filter(t=>!t.atPlan);
+  return {trades:trades.length, net_total:Math.round(trades.reduce((a,t)=>a+t.net,0)),
+    by_setup:g(t=>t.tag),
+    by_weekday:g(t=>new Date(t.closed).toLocaleDateString('en-IN',{weekday:'long'})),
+    manual_exits:{n:manual.length, net:Math.round(manual.reduce((a,t)=>a+t.net,0))},
+    adherence:adherence()};
+}
+async function ask(system, user, max_tokens=900){
+  const k = apiKey();
+  if(!k) throw new Error('No API key. Add one under Rules → Coach.');
+  const r = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST', headers:{'content-type':'application/json','x-api-key':k,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:MODEL, max_tokens, system,
+      messages:[{role:'user', content:user}]})});
+  if(!r.ok){ const e=await r.text();
+    throw new Error(r.status===401?'Key rejected by Anthropic.':'Request failed: '+e.slice(0,120)); }
+  const d = await r.json();
+  return (d.content||[]).map(b=>b.text||'').join('').trim();
+}
+async function echoThesis(){
+  const f=F(); const box=$('echo');
+  const prior=trades.filter(t=>t.tag===f.tag);
+  if(prior.length<10){ box.innerHTML=`<div class="note w"><s>i</s><span>
+    Needs 10 closed ${f.tag||'tagged'} trades before your record says anything.
+    You have ${prior.length}.</span></div>`; return; }
+  box.innerHTML=`<div class="note w"><s>…</s><span>Reading your record…</span></div>`;
+  try{
+    const txt=await ask(GUARD+`
+
+You get a draft rationale for a trade about to be taken, plus past trades under
+the same setup tag. In at most three sentences: does the wording resemble past
+entries, and what did those return? If there is no meaningful resemblance, say
+exactly that in one sentence. Do not advise for or against the trade.`,
+      JSON.stringify({draft:f.thesis, tag:f.tag, prior:prior.slice(-40).map(slim)}), 300);
+    box.innerHTML=`<div class="note w"><s>i</s><span>${esc(txt)}</span></div>`;
+  }catch(e){ box.innerHTML=`<div class="note b"><s>×</s><span>${esc(e.message)}</span></div>`; }
+}
+function esc(x){ return String(x).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+
+async function runCoach(kind){
+  const out=$('coach-out');
+  if(trades.length<20){ out.innerHTML=`<div class="note w"><s>i</s><span>
+    ${trades.length} closed trades. Below about 20, any pattern found is
+    indistinguishable from noise — there is nothing honest to report yet.
+    </span></div>`; return; }
+  out.innerHTML=`<p class="dim" style="font-size:14px">Reading ${trades.length} trades…</p>`;
+  const week = trades.filter(t=>Date.now()-new Date(t.closed) < 7*864e5);
+  try{
+    const txt = kind==='week'
+      ? await ask(GUARD+`
+
+Write a weekly review in four labelled parts:
+KEPT — rules followed this week, with numbers.
+BROKE — rules broken, with the rupee cost where attributable.
+PATTERN — one thing recurring across weeks, or "nothing new".
+QUESTION — one question for them to answer in writing before next week.
+Under 200 words. Plain sentences. No encouragement, no summary of itself.`,
+          JSON.stringify({this_week:week.map(slim), all_time:aggregates()}), 700)
+      : await ask(GUARD+`
+
+At most five observations, one sentence each, ordered by how much money the
+pattern costs or makes. Every observation cites a count and a rupee figure from
+the aggregates. Then one closing line naming the single change most likely to
+matter. No headings, no preamble.`,
+          JSON.stringify({aggregates:aggregates(), trades:trades.slice(-150).map(slim)}), 900);
+    out.innerHTML=`<div style="white-space:pre-wrap;font-size:14.5px;line-height:1.6">${esc(txt)}</div>
+      <p class="faint" style="font-size:11.5px;margin-top:14px">
+      Observational only. Not investment advice and not a signal.</p>`;
+  }catch(e){ out.innerHTML=`<div class="note b"><s>×</s><span>${esc(e.message)}</span></div>`; }
+}
+function renderCoach(){
+  $('v-coach').innerHTML = `
+    <div class="card">
+      <div class="lab">Coach</div>
+      <p class="faint" style="font-size:13.5px;margin:10px 0 0">
+        Reads your closed trades and nothing else. No prices, no market data,
+        no ability to suggest a trade — it tells you what you have been doing,
+        not what to do next.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="chip" id="c-week" style="padding:12px">Weekly review</button>
+        <button class="chip" id="c-pat" style="padding:12px">Find my patterns</button>
+      </div>
+      <div id="coach-out" style="margin-top:16px">${apiKey()?
+        `<p class="faint" style="font-size:13px">${trades.length} closed trades on file.</p>`:
+        `<div class="note w"><s>!</s><span>Add an Anthropic API key under
+         Rules → Coach to switch this on. Everything else works without it.</span></div>`}</div>
+    </div>`;
+  $('c-week').onclick=()=>runCoach('week');
+  $('c-pat').onclick=()=>runCoach('patterns');
+}
+
+/* ─────────────────── exit reminders ───────────────────
+   This app has no broker connection and cannot close anything. What it can do
+   is nudge you at the two moments exits get forgotten. */
+function notify(title, body){
+  try{ if(Notification.permission==='granted') new Notification(title,{body, icon:'icon-192.png'}); }
+  catch(e){}
+}
+let fired = store.get('fired', {});
+function checkReminders(){
+  const now=new Date(), hm=now.toTimeString().slice(0,5), d=today();
+  if(fired.day!==d) fired={day:d};
+  const sq = store.get('sq','15:12');
+  if(hm>=sq && hm<'15:30' && !fired.sq && open.length){
+    fired.sq=1; store.set('fired',fired);
+    notify('Square-off window', `${open.length} position(s) open. Intraday auto-square-off is close.`);
+  }
+  const lim=-rules.capital*rules.dailyPct/100;
+  if(pnlToday()<=lim && !fired.cap){
+    fired.cap=1; store.set('fired',fired);
+    notify('Daily loss cap hit', 'Close out and stop. The ticket is locked until tomorrow.');
+  }
+}
+
+/* ─────────────────── wiring ─────────────────── */
+function renderTags(){
+  $('tags').innerHTML = TAGS.map(t=>
+    `<button class="chip" ${T.tag===t?'data-on':''} data-t="${t}">${t}</button>`).join('');
+  $('tags').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    T.tag = T.tag===b.dataset.t ? '' : b.dataset.t; renderTags(); render(); });
+}
+function go(v){
+  ['ticket','open','score','coach','setup'].forEach(x=>$('v-'+x).classList.toggle('hide',x!==v));
+  document.querySelectorAll('nav button').forEach(b=>
+    b.toggleAttribute('data-on', b.dataset.v===v));
+  if(v==='open') renderOpen(); if(v==='score') renderScore();
+  if(v==='coach') renderCoach(); if(v==='setup') renderSetup();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+$('side').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  T.side=b.dataset.v;
+  $('side').querySelectorAll('button').forEach(x=>{
+    x.toggleAttribute('data-on', x===b); x.dataset.side=x.dataset.v; });
+  render();
+});
+['entry','stop','target','qty','sym','thesis','seg'].forEach(i=>
+  $(i).addEventListener('input', ()=>{ ack=false; render(); }));
+['entry','stop'].forEach(i=> $(i).addEventListener('blur', ()=>{
+  if(!$('qty').value) suggestQty(); }));
+$('s-save').onclick = saveRules;
+$('s-key-save').onclick = () => { store.set('key', $('s-key').value.trim());
+  $('s-key').value=''; $('s-key').placeholder = apiKey()?'saved — enter a new key to replace':'sk-ant-...'; };
+$('s-notify').onclick = async e => {
+  try{ const p = await Notification.requestPermission();
+    e.target.textContent = p==='granted' ? 'Enabled' : 'Blocked'; }
+  catch(err){ e.target.textContent='Unsupported'; }
+};
+$('s-sq').onchange = e => store.set('sq', e.target.value);
+$('export').onclick = () => {
+  const b = new Blob([JSON.stringify({rules,trades,open},null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = 'desk-'+today()+'.json'; a.click();
+};
+$('wipe').onclick = () => {
+  if(confirm('Erase every trade and rule on this device? This cannot be undone.')){
+    trades=[]; open=[]; tilt={until:0,trips:0,why:''}; pending=null;
+    rules=Object.assign({},DEF_RULES); save(); renderSetup(); renderOpen();
+    renderScore(); render();
+  }
+};
+applyPending();
+renderTags(); render(); setInterval(()=>{ applyPending(); renderLock(); checkReminders(); }, 20000);
+checkReminders();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
